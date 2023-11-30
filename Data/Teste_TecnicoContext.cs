@@ -14,7 +14,8 @@ namespace Teste_Tecnico.Data
         {
         }
 
-        public DbSet<Teste_Tecnico.Models.ClienteModel> ClienteModel { get; set; } = default!;
-        public DbSet<Teste_Tecnico.Models.EnderecoModel> EnderecoModel { get; set; } = default!;
+        public virtual DbSet<Teste_Tecnico.Models.ClienteModel> ClienteModel { get; set; }
+        public virtual DbSet<Teste_Tecnico.Models.EnderecoModel> EnderecoModel { get; set; } 
+
     }
 }

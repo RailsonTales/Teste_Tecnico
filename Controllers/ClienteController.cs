@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Teste_Tecnico.Data;
 using Teste_Tecnico.Models;
+using Teste_Tecnico.Services;
 
 namespace Teste_Tecnico.Controllers
 {
@@ -59,66 +60,37 @@ namespace Teste_Tecnico.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("ID,Nome,Email,DataNascimento,CEP")] ClienteModel clienteModel)
+        public async Task<IActionResult> Create([Bind("ID,Nome,Email,DataNascimento,CEP")] ClienteModel clienteModel, EnderecoModel enderecoModel)
         {
-            if (ModelState.IsValid)
+            //dsadasd
+
+            var retornoValidacaoCampos = Validacoes.ValidandoCampos(clienteModel, enderecoModel);
+
+            if (retornoValidacaoCampos != "OK")
             {
-                //https://viacep.com.br/ws/01001000/json/
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create("https://viacep.com.br/ws/" + clienteModel.CEP + "/json/");
+                TempData["Mensagem"] = retornoValidacaoCampos;
+                return View(clienteModel);
+            }
 
-                request.AllowAutoRedirect = false;
-                HttpWebResponse ChecaServidor = (HttpWebResponse)request.GetResponse();
+            int retornoEndereco = 0;
 
-                if (ChecaServidor.StatusCode != HttpStatusCode.OK)
-                {
-                    //MessageBox.Show("Servidor indisponível");
-                    return View(clienteModel); // Sai da rotina
-                }
+            _context.Add(enderecoModel);
+            retornoEndereco = await _context.SaveChangesAsync();
+            var enderecoCliente = await _context.EnderecoModel.ToListAsync();
 
-                using (Stream webStream = ChecaServidor.GetResponseStream())
-                {
-                    if (webStream != null)
-                    {
-                        using (StreamReader responseReader = new StreamReader(webStream))
-                        {
-                            string response = responseReader.ReadToEnd();
-                            response = Regex.Replace(response, "[{},]", string.Empty);
-                            response = response.Replace("\"", "");
+            if (enderecoCliente != null)
+                clienteModel.Endereco = enderecoCliente.LastOrDefault();
+            else
+                return View(clienteModel);
 
-                            string[] substrings = response.Split('\n');
-
-                            if (substrings.Count() == 12)
-                            {
-                                EnderecoModel enderecoModel = new EnderecoModel();
-
-                                enderecoModel.Cep = clienteModel.CEP;
-
-                                string[] logradouro = substrings[2].Split(":".ToCharArray());
-                                enderecoModel.Logradouro = logradouro[1];
-
-                                string[] complemento = substrings[3].Split(":".ToCharArray());
-                                enderecoModel.Complemento = complemento[1];
-
-                                string[] bairro = substrings[4].Split(":".ToCharArray());
-                                enderecoModel.Bairro = bairro[1];
-
-                                string[] localidade = substrings[5].Split(":".ToCharArray());
-                                enderecoModel.Localidade = localidade[1];
-
-                                string[] uf = substrings[6].Split(":".ToCharArray());
-                                enderecoModel.UF = uf[1];
-
-                                _context.Add(enderecoModel);
-                            }
-                        }
-                    }
-                }
-
+            if (retornoEndereco == 1)
+            {
                 _context.Add(clienteModel);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
-            return View(clienteModel);
+            else
+                return View(clienteModel);
         }
 
         // GET: Cliente/Edit/5
@@ -130,10 +102,27 @@ namespace Teste_Tecnico.Controllers
             }
 
             var clienteModel = await _context.ClienteModel.FindAsync(id);
+            
             if (clienteModel == null)
             {
                 return NotFound();
             }
+            
+            var enderecoModel = await _context.EnderecoModel.Where(x=>x.ID == clienteModel.EnderecoID).FirstOrDefaultAsync();
+
+            if (enderecoModel == null)
+            {
+                return NotFound();
+            }
+
+            clienteModel.CEP = enderecoModel.Cep;
+            clienteModel.Logradouro = enderecoModel.Logradouro;
+            clienteModel.Complemento = enderecoModel.Complemento;
+            clienteModel.Bairro = enderecoModel.Bairro;
+            clienteModel.Localidade = enderecoModel.Localidade;
+            clienteModel.UF = enderecoModel.UF;
+            clienteModel.Numero = enderecoModel.Numero;
+
             return View(clienteModel);
         }
 
@@ -142,34 +131,56 @@ namespace Teste_Tecnico.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("ID,Nome,Email,DataNascimento,CEP")] ClienteModel clienteModel)
+        public async Task<IActionResult> Edit(int id, [Bind("ID,Nome,Email,DataNascimento,CEP")] ClienteModel clienteModel, EnderecoModel enderecoModel)
         {
-            if (id != clienteModel.ID)
+            if (id != clienteModel.ID || _context.ClienteModel == null)
             {
                 return NotFound();
             }
 
-            if (ModelState.IsValid)
+            try
             {
-                try
+                var clienteModelBD = await _context.ClienteModel.AsNoTracking().FirstOrDefaultAsync(c => c.ID == id);
+                if(clienteModelBD == null)
+                    return NotFound();
+
+                var enderecoModelBD = await _context.EnderecoModel.AsNoTracking().FirstOrDefaultAsync(c => c.ID == clienteModelBD.EnderecoID);
+                if (enderecoModelBD == null)
+                    return NotFound();
+
+                enderecoModelBD.Cep = enderecoModel.Cep;
+                enderecoModelBD.Logradouro = enderecoModel.Logradouro;
+                enderecoModelBD.Complemento = enderecoModel.Complemento;
+                enderecoModelBD.Bairro = enderecoModel.Bairro;
+                enderecoModelBD.Localidade = enderecoModel.Localidade;
+                enderecoModelBD.UF = enderecoModel.UF;
+                enderecoModelBD.Numero = enderecoModel.Numero;
+
+                _context.Update(enderecoModelBD);
+                var retornoEnderecoModelBD = await _context.SaveChangesAsync();
+
+                clienteModel.EnderecoID = clienteModelBD.EnderecoID;
+
+                if (retornoEnderecoModelBD == 1)
                 {
                     _context.Update(clienteModel);
                     await _context.SaveChangesAsync();
                 }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!ClienteModelExists(clienteModel.ID))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
             }
-            return View(clienteModel);
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ClienteModelExists(clienteModel.ID))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+            return RedirectToAction(nameof(Index));
+            
+            //return View(clienteModel);
         }
 
         // GET: Cliente/Delete/5
@@ -224,6 +235,16 @@ namespace Teste_Tecnico.Controllers
             }
 
             return View(clientes);
+        }
+
+        [HttpPost]
+        public JsonResult PesquisarCEP(string campoPesquisaCEP)
+        {
+            var enderecoService = new EnderecoService();
+
+            var enderecoModel = enderecoService.PesquisarCEP(campoPesquisaCEP);
+
+            return Json(enderecoModel);
         }
     }
 }
