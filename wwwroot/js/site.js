@@ -10,7 +10,7 @@ inputCEP.onblur = function () {
 
     if (inputCEP.value.length == 8) {
         $.ajax({
-            url: 'PesquisarCEP',
+            url: '/Cliente/PesquisarCEP',
             type: 'post',
             data: {
                 campoPesquisaCEP: inputCEP.value

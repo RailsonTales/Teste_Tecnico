@@ -23,11 +23,6 @@ namespace Teste_Tecnico.Services
                 return "Nenhum campo obrigatório foi preenchido!";
             }
 
-            if (clienteModel == null || enderecoModel == null)
-            {
-                return "Nenhum campo obrigatório foi preenchido!";
-            }
-
             if (clienteModel.Email == null)
             {
                 return "E-mail vazio!";
@@ -64,6 +59,9 @@ namespace Teste_Tecnico.Services
 
             if (clienteModel.DataNascimento == null)
                 return "Data Nascimento vazio!";
+
+            if (clienteModel.DataNascimento > DateTime.Today)
+                return "Data Nascimento não pode ser maior que a atual!";
 
             if (enderecoModel.Logradouro == null)
                 return "Logradouro vazio!";
